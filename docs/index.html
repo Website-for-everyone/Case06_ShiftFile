@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<script>
+(function() {
+  const MOCK_DB = {};
+  const STORAGE_KEY = "idrisov_demo_" + "Case06_ShiftFile";
+  let localState = {};
+  try { localState = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch(e) {}
+  function saveState() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(localState)); } catch(e) {} }
+
+  const origFetch = window.fetch.bind(window);
+  window.fetch = async function(input, init) {
+    const urlStr = typeof input === "string" ? input : (input && input.url) || "";
+    if (!urlStr.includes("/api/")) {
+      return origFetch(input, init);
+    }
+
+    const method = ((init && init.method) || "GET").toUpperCase();
+    let body = {};
+    if (init && init.body && typeof init.body === "string") {
+      try { body = JSON.parse(init.body); } catch(e) {}
+    }
+
+    const pathOnly = urlStr.split("?")[0];
+    const urlPath = pathOnly.startsWith("http") ? new URL(pathOnly).pathname : pathOnly;
+
+    // 1. Exact GET match from extracted FastAPI TestClient data
+    if (method === "GET") {
+      if (MOCK_DB[urlStr]) return jsonResp(MOCK_DB[urlStr]);
+      if (MOCK_DB[urlPath]) return jsonResp(MOCK_DB[urlPath]);
+      for (const k of Object.keys(MOCK_DB)) {
+        if (k.split("?")[0] === urlPath) return jsonResp(MOCK_DB[k]);
+      }
+      if (urlPath.includes("/api/dataset/") && !MOCK_DB[urlPath]) {
+        const fallbackKey = Object.keys(MOCK_DB).find(k => k.startsWith("/api/dataset/"));
+        if (fallbackKey) return jsonResp(MOCK_DB[fallbackKey]);
+      }
+    }
+
+    // 2. Dynamic Calculators & Interactive Endpoints
+    if (urlPath.endsWith("/calculate")) {
+      const base = Number(body.base_price || body.area || body.days || 1) * 1500 || 4500;
+      const total = Math.max(2500, Math.round(base + (Number(body.weight_kg || 5) * 200)));
+      return jsonResp({
+        status: "ok",
+        total_price: total,
+        price_rub: total,
+        estimated_price: total,
+        duration_minutes: 90,
+        breakdown: { base: Math.round(total * 0.7), extras: Math.round(total * 0.3) },
+        currency: "RUB"
+      });
+    }
+
+    if (urlPath.includes("/estimate")) {
+      return jsonResp({
+        status: "ok",
+        total_rub: 3850000,
+        timeline_weeks: 8,
+        summary: "Смета сформирована (Static Demo Mode)",
+        estimate_id: "EST-" + Math.floor(1000 + Math.random() * 9000)
+      });
+    }
+
+    if (urlPath.includes("/query") || urlPath.includes("/historian/ask")) {
+      const q = body.question || body.query || body.prompt || "Анализ данных";
+      return jsonResp({
+        status: "ok",
+        answer: "Аналитический ответ (Demo AI): по запросу «" + q + "» выявлена устойчивая корреляция (r = 0.78, p < 0.01). Медианные значения находятся в пределах целевого диапазона без критических выбросов.",
+        metrics: [
+          { label: "Медиана", value: "42.8" },
+          { label: "Std Dev", value: "6.14" },
+          { label: "Выбросы", value: "2.1%" }
+        ]
+      });
+    }
+
+    if (urlPath.includes("/quiz/recommend")) {
+      return jsonResp({
+        status: "ok",
+        recommendation: {
+          name: "Ethiopia Yirgacheffe Kochere",
+          origin: "Ethiopia",
+          roast: "Light Filter",
+          notes: ["Бергамот", "Жасмин", "Персик"],
+          match_percent: 96
+        }
+      });
+    }
+
+    if (urlPath.includes("/verify-passcode")) {
+      return jsonResp({ status: "success", unlocked: true, valid: true, message: "VIP ACCESS GRANTED" });
+    }
+
+    if (urlPath.includes("/track-order")) {
+      return jsonResp({
+        status: "success",
+        order_id: urlPath.split("/").pop() || "CR-2026",
+        stage: "Регулировка хода и тест герметичности (Этап 4/5)",
+        master: "Виктор К.",
+        eta: "2 дня"
+      });
+    }
+
+    if (urlPath.includes("/tasks")) {
+      localState.tasks = localState.tasks || (MOCK_DB["/api/tasks"] && MOCK_DB["/api/tasks"].tasks) || [];
+      if (method === "POST" && urlPath.endsWith("/tasks")) {
+        const t = { id: Date.now(), title: body.title || "Новая задача", duration_hours: Number(body.duration_hours || 1), quadrant: body.quadrant || "urgent_important", is_completed: false };
+        localState.tasks.push(t);
+        saveState();
+        return jsonResp({ status: "ok", task: t, tasks: localState.tasks });
+      }
+      if (urlPath.includes("/toggle")) {
+        const id = Number(urlPath.split("/")[3]);
+        localState.tasks = localState.tasks.map(t => t.id === id ? { ...t, is_completed: !t.is_completed } : t);
+        saveState();
+        return jsonResp({ status: "ok", tasks: localState.tasks });
+      }
+      if (method === "DELETE") {
+        const id = Number(urlPath.split("/").pop());
+        localState.tasks = localState.tasks.filter(t => t.id !== id);
+        saveState();
+        return jsonResp({ status: "ok", tasks: localState.tasks });
+      }
+      return jsonResp({ tasks: localState.tasks });
+    }
+
+    if (urlPath === "/api/state") {
+      return jsonResp(MOCK_DB["/api/state"] || {
+        title: "LIVE RAP & TECH BATTLE // FINAL",
+        round: 3,
+        status: "VOTING_OPEN",
+        fighters: [
+          { id: "mc_a", name: "MC NEON", votes: 142, color: "#00f0ff" },
+          { id: "mc_b", name: "BYTE_KILLER", votes: 138, color: "#ff007f" }
+        ]
+      });
+    }
+
+    if (urlPath === "/api/vote") {
+      return jsonResp({ status: "ok", message: "Голос учтен!", voted: true });
+    }
+
+    // Default POST confirmation (bookings, orders, quotes, appraisals, seat reservations)
+    const refId = "ID-" + Math.floor(10000 + Math.random() * 90000);
+    return jsonResp({
+      status: "ok",
+      success: true,
+      id: refId,
+      booking_id: refId,
+      cert_id: refId,
+      voucher: "VIP-" + refId,
+      order_id: refId,
+      message: "Заявка #" + refId + " успешно оформлена и синхронизирована с Telegram-ботом @Idrisov_prod!"
+    });
+  };
+
+  function jsonResp(data) {
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+})();
+</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShiftFile // TE-CONVERTER 06</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="chassis">
+    <!-- Top Hardware Rail -->
+    <header class="top-rail">
+      <div class="brand">
+        <span class="brand-led active"></span>
+        <span class="brand-title">SHIFTFILE // OP-TRANSCODE</span>
+        <span class="firmware-tag">FW 1.0.4-WASM</span>
+      </div>
+      <div class="system-stats">
+        <div class="stat-cell"><span class="lbl">HEAP</span><span class="val" id="heapVal">256MB</span></div>
+        <div class="stat-cell"><span class="lbl">CORE</span><span class="val">CLIENT-ZERO-UPLOAD</span></div>
+        <div class="stat-cell"><span class="lbl">STATUS</span><span class="val text-orange" id="statusVal">STANDBY</span></div>
+      </div>
+    </header>
+
+    <!-- Main Machine Body -->
+    <main class="hardware-grid">
+      <!-- Left Column: Input Bay -->
+      <section class="module bay-module">
+        <div class="module-header">
+          <span class="module-num">01</span>
+          <span class="module-title">SOURCE_BAY // INPUT</span>
+        </div>
+        
+        <div class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" class="file-input" />
+          <div class="dropzone-inner">
+            <svg class="drop-icon" viewBox="0 0 48 48" fill="none">
+              <path d="M24 10V32M24 10L16 18M24 10L32 18" stroke="#FF5722" stroke-width="3" stroke-linecap="square"/>
+              <path d="M8 34V40H40V34" stroke="#242426" stroke-width="3" stroke-linecap="square"/>
+            </svg>
+            <p class="drop-title">DRAG & DROP FILE</p>
+            <p class="drop-sub">OR CLICK TO INSERT MEDIA</p>
+            <span class="badge">MAX HEAP 100MB</span>
+          </div>
+        </div>
+
+        <div class="file-manifest" id="fileManifest">
+          <div class="manifest-row"><span>NAME:</span><strong id="metaName">--</strong></div>
+          <div class="manifest-row"><span>SIZE:</span><strong id="metaSize">--</strong></div>
+          <div class="manifest-row"><span>TYPE:</span><strong id="metaType">--</strong></div>
+        </div>
+      </section>
+
+      <!-- Center Column: Mechanical Conversion Unit & Gears -->
+      <section class="module processor-module">
+        <div class="module-header">
+          <span class="module-num">02</span>
+          <span class="module-title">MECHANICAL_CORE // WASM</span>
+        </div>
+
+        <!-- Animated Brass & Steel Gears -->
+        <div class="gears-bay">
+          <svg class="gears-svg" viewBox="0 0 200 200" id="gearAnimation">
+            <!-- Gear 1 (Large Safety Orange) -->
+            <g class="gear gear-main" id="gearMain">
+              <circle cx="80" cy="90" r="50" fill="#E05018" stroke="#1F1F21" stroke-width="4"/>
+              <circle cx="80" cy="90" r="16" fill="#ECECEE" stroke="#1F1F21" stroke-width="3"/>
+              <!-- Teeth -->
+              <rect x="74" y="32" width="12" height="12" rx="2" fill="#E05018" />
+              <rect x="74" y="136" width="12" height="12" rx="2" fill="#E05018" />
+              <rect x="22" y="84" width="12" height="12" rx="2" fill="#E05018" />
+              <rect x="126" y="84" width="12" height="12" rx="2" fill="#E05018" />
+              <rect x="39" y="49" width="12" height="12" rx="2" transform="rotate(45 45 55)" fill="#E05018"/>
+              <rect x="113" y="123" width="12" height="12" rx="2" transform="rotate(45 119 129)" fill="#E05018"/>
+              <rect x="113" y="49" width="12" height="12" rx="2" transform="rotate(-45 119 55)" fill="#E05018"/>
+              <rect x="39" y="123" width="12" height="12" rx="2" transform="rotate(-45 45 129)" fill="#E05018"/>
+            </g>
+
+            <!-- Gear 2 (Interlocking Steel Gray) -->
+            <g class="gear gear-sub" id="gearSub">
+              <circle cx="140" cy="135" r="32" fill="#4B4B52" stroke="#1F1F21" stroke-width="3"/>
+              <circle cx="140" cy="135" r="10" fill="#ECECEE" stroke="#1F1F21" stroke-width="2"/>
+              <!-- Teeth -->
+              <rect x="135" y="98" width="10" height="10" fill="#4B4B52" />
+              <rect x="135" y="162" width="10" height="10" fill="#4B4B52" />
+              <rect x="103" y="130" width="10" height="10" fill="#4B4B52" />
+              <rect x="167" y="130" width="10" height="10" fill="#4B4B52" />
+            </g>
+          </svg>
+        </div>
+
+        <div class="progress-box">
+          <div class="progress-track">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <div class="progress-labels">
+            <span id="progressPct">0%</span>
+            <span id="transcodeStage">READY_FOR_SHIFT</span>
+          </div>
+        </div>
+
+        <div class="knob-control-panel">
+          <label class="knob-label">OUTPUT ENCODER</label>
+          <div class="knob-row">
+            <button class="knob-step" id="prevFormat">&lt;</button>
+            <div class="knob-display" id="activeFormatDisplay">PNG</div>
+            <button class="knob-step" id="nextFormat">&gt;</button>
+          </div>
+          <select id="formatSelector" class="hidden-select">
+            <optgroup label="Images">
+              <option value="png" selected>PNG (Lossless)</option>
+              <option value="jpeg">JPEG (Compressed)</option>
+              <option value="webp">WEBP (Web Modern)</option>
+              <option value="bmp">BMP (Raw Bitmap)</option>
+            </optgroup>
+            <optgroup label="Spreadsheet & Data">
+              <option value="csv">CSV (Comma Separated)</option>
+              <option value="json">JSON (Structured)</option>
+              <option value="tsv">TSV (Tab Separated)</option>
+            </optgroup>
+            <optgroup label="Documents & Text">
+              <option value="txt">TXT (Plain Text)</option>
+              <option value="html">HTML (Markup)</option>
+            </optgroup>
+            <optgroup label="Audio (Tone/WAV)">
+              <option value="wav">WAV (Audio 16-bit)</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <button class="industrial-button btn-execute" id="btnConvert">
+          <span class="btn-indicator"></span>
+          ENGAGE SHIFT
+        </button>
+      </section>
+
+      <!-- Right Column: Output & Hardware Diagnostics -->
+      <section class="module out-module">
+        <div class="module-header">
+          <span class="module-num">03</span>
+          <span class="module-title">TARGET_BAY // OUTPUT</span>
+        </div>
+
+        <div class="output-viewer" id="outputViewer">
+          <div class="empty-state" id="emptyState">
+            <span class="empty-icon">⏣</span>
+            <p>NO PROCESSED BUFFER</p>
+          </div>
+          <div class="preview-card hidden" id="previewCard">
+            <div class="preview-header">
+              <span id="resFilename">output.bin</span>
+              <span class="badge" id="resSize">-- KB</span>
+            </div>
+            <div class="preview-media" id="previewMedia"></div>
+            <a id="downloadLink" class="industrial-button btn-download" download="converted_file">
+              DOWNLOAD OUTPUT
+            </a>
+          </div>
+        </div>
+
+        <div class="hardware-switches">
+          <div class="switch-row">
+            <span>FLATTEN_JSON_NESTING</span>
+            <input type="checkbox" id="cfgFlatten" checked class="te-toggle"/>
+          </div>
+          <div class="switch-row">
+            <span>PRESERVE_ALPHA</span>
+            <input type="checkbox" id="cfgAlpha" checked class="te-toggle"/>
+          </div>
+          <div class="switch-row">
+            <span>COMPRESSION_RATIO</span>
+            <input type="range" id="cfgQuality" min="10" max="100" value="90" class="te-slider"/>
+            <span id="qualityVal">90%</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Telemetry Footer -->
+    <footer class="bottom-rail">
+      <div class="rail-left">
+        <span>TE-IDRISOV // CASE 06</span>
+        <span class="pipe">|</span>
+        <span>MIRROR TELEGRAM COMPANION ACTIVE</span>
+      </div>
+      <div class="rail-right">
+        <span>@Idrisov_prod ECOSYSTEM</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Memory Overflow Warning Modal -->
+  <div class="modal-backdrop hidden" id="memModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="warn-glyph">⚠</span>
+        <span>HEAP EXHAUSTION SAFEGUARD</span>
+      </div>
+      <p class="modal-body">
+        File exceeds 100MB threshold. In-browser WebAssembly memory heap is restricted to prevent tab crashing.
+        Please downscale asset or convert via the mirror Telegram bot backend.
+      </p>
+      <div class="modal-actions">
+        <button class="industrial-button" id="closeMemModal">ACKNOWLEDGE</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
