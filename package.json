@@ -1,0 +1,13 @@
+{
+  "name": "shiftfile",
+  "version": "1.0.0",
+  "description": "Teenage Engineering Industrial In-Browser File Converter",
+  "main": "web/app.js",
+  "scripts": {
+    "start": "python api/server.py",
+    "test": "pytest tests/ -v"
+  },
+  "keywords": ["converter", "teenage-engineering", "wasm", "client-side", "telegram-bot"],
+  "author": "Daniel Idrisov (@Idrisov_prod)",
+  "license": "MIT"
+}

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShiftFile // TE-CONVERTER 06</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="chassis">
+    <!-- Top Hardware Rail -->
+    <header class="top-rail">
+      <div class="brand">
+        <span class="brand-led active"></span>
+        <span class="brand-title">SHIFTFILE // OP-TRANSCODE</span>
+        <span class="firmware-tag">FW 1.0.4-WASM</span>
+      </div>
+      <div class="system-stats">
+        <div class="stat-cell"><span class="lbl">HEAP</span><span class="val" id="heapVal">256MB</span></div>
+        <div class="stat-cell"><span class="lbl">CORE</span><span class="val">CLIENT-ZERO-UPLOAD</span></div>
+        <div class="stat-cell"><span class="lbl">STATUS</span><span class="val text-orange" id="statusVal">STANDBY</span></div>
+      </div>
+    </header>
+
+    <!-- Main Machine Body -->
+    <main class="hardware-grid">
+      <!-- Left Column: Input Bay -->
+      <section class="module bay-module">
+        <div class="module-header">
+          <span class="module-num">01</span>
+          <span class="module-title">SOURCE_BAY // INPUT</span>
+        </div>
+        
+        <div class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" class="file-input" />
+          <div class="dropzone-inner">
+            <svg class="drop-icon" viewBox="0 0 48 48" fill="none">
+              <path d="M24 10V32M24 10L16 18M24 10L32 18" stroke="#FF5722" stroke-width="3" stroke-linecap="square"/>
+              <path d="M8 34V40H40V34" stroke="#242426" stroke-width="3" stroke-linecap="square"/>
+            </svg>
+            <p class="drop-title">DRAG & DROP FILE</p>
+            <p class="drop-sub">OR CLICK TO INSERT MEDIA</p>
+            <span class="badge">MAX HEAP 100MB</span>
+          </div>
+        </div>
+
+        <div class="file-manifest" id="fileManifest">
+          <div class="manifest-row"><span>NAME:</span><strong id="metaName">--</strong></div>
+          <div class="manifest-row"><span>SIZE:</span><strong id="metaSize">--</strong></div>
+          <div class="manifest-row"><span>TYPE:</span><strong id="metaType">--</strong></div>
+        </div>
+      </section>
+
+      <!-- Center Column: Mechanical Conversion Unit & Gears -->
+      <section class="module processor-module">
+        <div class="module-header">
+          <span class="module-num">02</span>
+          <span class="module-title">MECHANICAL_CORE // WASM</span>
+        </div>
+
+        <!-- Animated Brass & Steel Gears -->
+        <div class="gears-bay">
+          <svg class="gears-svg" viewBox="0 0 200 200" id="gearAnimation">
+            <!-- Gear 1 (Large Safety Orange) -->
+            <g class="gear gear-main" id="gearMain">
+              <circle cx="80" cy="90" r="50" fill="#E05018" stroke="#1F1F21" stroke-width="4"/>
+              <circle cx="80" cy="90" r="16" fill="#ECECEE" stroke="#1F1F21" stroke-width="3"/>
+              <!-- Teeth -->
+              <rect x="74" y="32" width="12" height="12" rx="2" fill="#E05018" />
+              <rect x="74" y="136" width="12" height="12" rx="2" fill="#E05018" />
+              <rect x="22" y="84" width="12" height="12" rx="2" fill="#E05018" />
+              <rect x="126" y="84" width="12" height="12" rx="2" fill="#E05018" />
+              <rect x="39" y="49" width="12" height="12" rx="2" transform="rotate(45 45 55)" fill="#E05018"/>
+              <rect x="113" y="123" width="12" height="12" rx="2" transform="rotate(45 119 129)" fill="#E05018"/>
+              <rect x="113" y="49" width="12" height="12" rx="2" transform="rotate(-45 119 55)" fill="#E05018"/>
+              <rect x="39" y="123" width="12" height="12" rx="2" transform="rotate(-45 45 129)" fill="#E05018"/>
+            </g>
+
+            <!-- Gear 2 (Interlocking Steel Gray) -->
+            <g class="gear gear-sub" id="gearSub">
+              <circle cx="140" cy="135" r="32" fill="#4B4B52" stroke="#1F1F21" stroke-width="3"/>
+              <circle cx="140" cy="135" r="10" fill="#ECECEE" stroke="#1F1F21" stroke-width="2"/>
+              <!-- Teeth -->
+              <rect x="135" y="98" width="10" height="10" fill="#4B4B52" />
+              <rect x="135" y="162" width="10" height="10" fill="#4B4B52" />
+              <rect x="103" y="130" width="10" height="10" fill="#4B4B52" />
+              <rect x="167" y="130" width="10" height="10" fill="#4B4B52" />
+            </g>
+          </svg>
+        </div>
+
+        <div class="progress-box">
+          <div class="progress-track">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <div class="progress-labels">
+            <span id="progressPct">0%</span>
+            <span id="transcodeStage">READY_FOR_SHIFT</span>
+          </div>
+        </div>
+
+        <div class="knob-control-panel">
+          <label class="knob-label">OUTPUT ENCODER</label>
+          <div class="knob-row">
+            <button class="knob-step" id="prevFormat">&lt;</button>
+            <div class="knob-display" id="activeFormatDisplay">PNG</div>
+            <button class="knob-step" id="nextFormat">&gt;</button>
+          </div>
+          <select id="formatSelector" class="hidden-select">
+            <optgroup label="Images">
+              <option value="png" selected>PNG (Lossless)</option>
+              <option value="jpeg">JPEG (Compressed)</option>
+              <option value="webp">WEBP (Web Modern)</option>
+              <option value="bmp">BMP (Raw Bitmap)</option>
+            </optgroup>
+            <optgroup label="Spreadsheet & Data">
+              <option value="csv">CSV (Comma Separated)</option>
+              <option value="json">JSON (Structured)</option>
+              <option value="tsv">TSV (Tab Separated)</option>
+            </optgroup>
+            <optgroup label="Documents & Text">
+              <option value="txt">TXT (Plain Text)</option>
+              <option value="html">HTML (Markup)</option>
+            </optgroup>
+            <optgroup label="Audio (Tone/WAV)">
+              <option value="wav">WAV (Audio 16-bit)</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <button class="industrial-button btn-execute" id="btnConvert">
+          <span class="btn-indicator"></span>
+          ENGAGE SHIFT
+        </button>
+      </section>
+
+      <!-- Right Column: Output & Hardware Diagnostics -->
+      <section class="module out-module">
+        <div class="module-header">
+          <span class="module-num">03</span>
+          <span class="module-title">TARGET_BAY // OUTPUT</span>
+        </div>
+
+        <div class="output-viewer" id="outputViewer">
+          <div class="empty-state" id="emptyState">
+            <span class="empty-icon">⏣</span>
+            <p>NO PROCESSED BUFFER</p>
+          </div>
+          <div class="preview-card hidden" id="previewCard">
+            <div class="preview-header">
+              <span id="resFilename">output.bin</span>
+              <span class="badge" id="resSize">-- KB</span>
+            </div>
+            <div class="preview-media" id="previewMedia"></div>
+            <a id="downloadLink" class="industrial-button btn-download" download="converted_file">
+              DOWNLOAD OUTPUT
+            </a>
+          </div>
+        </div>
+
+        <div class="hardware-switches">
+          <div class="switch-row">
+            <span>FLATTEN_JSON_NESTING</span>
+            <input type="checkbox" id="cfgFlatten" checked class="te-toggle"/>
+          </div>
+          <div class="switch-row">
+            <span>PRESERVE_ALPHA</span>
+            <input type="checkbox" id="cfgAlpha" checked class="te-toggle"/>
+          </div>
+          <div class="switch-row">
+            <span>COMPRESSION_RATIO</span>
+            <input type="range" id="cfgQuality" min="10" max="100" value="90" class="te-slider"/>
+            <span id="qualityVal">90%</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Telemetry Footer -->
+    <footer class="bottom-rail">
+      <div class="rail-left">
+        <span>TE-IDRISOV // CASE 06</span>
+        <span class="pipe">|</span>
+        <span>MIRROR TELEGRAM COMPANION ACTIVE</span>
+      </div>
+      <div class="rail-right">
+        <span>@Idrisov_prod ECOSYSTEM</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Memory Overflow Warning Modal -->
+  <div class="modal-backdrop hidden" id="memModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="warn-glyph">⚠</span>
+        <span>HEAP EXHAUSTION SAFEGUARD</span>
+      </div>
+      <p class="modal-body">
+        File exceeds 100MB threshold. In-browser WebAssembly memory heap is restricted to prevent tab crashing.
+        Please downscale asset or convert via the mirror Telegram bot backend.
+      </p>
+      <div class="modal-actions">
+        <button class="industrial-button" id="closeMemModal">ACKNOWLEDGE</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
